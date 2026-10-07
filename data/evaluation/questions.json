@@ -1,0 +1,23 @@
+[
+  {"id":"EXP01","category":"Explanation","question":"Explain how ReproLens distinguishes an environment difference from an environment-induced failure."},
+  {"id":"EXP02","category":"Explanation","question":"Explain the purpose of a development and CI environment fingerprint."},
+  {"id":"RET01","category":"Code Retrieval","question":"Which module extracts the GitHub Actions CI environment?"},
+  {"id":"RET02","category":"Code Retrieval","question":"Where is the environment comparison implemented?"},
+  {"id":"DEP01","category":"Dependency Understanding","question":"How can a dependency become incompatible with the CI environment?"},
+  {"id":"DEP02","category":"Dependency Understanding","question":"Which ReproLens features represent dependency-related compatibility risk?"},
+  {"id":"BUG01","category":"Bug Analysis","question":"Why should a Node 20 versus Node 18 mismatch not automatically be labeled as a CI failure?"},
+  {"id":"BUG02","category":"Bug Analysis","question":"What should ReproLens do when a CI failure has insufficient evidence of an environment cause?"},
+  {"id":"GEN01","category":"Code Generation","question":"Generate a unit test for a runtime requirement violation."},
+  {"id":"GEN02","category":"Code Generation","question":"Generate a test that confirms matching runtime versions are not flagged as a mismatch."},
+  {"id":"REF01","category":"Refactoring","question":"Suggest a refactoring that keeps environment extraction separate from compatibility analysis."},
+  {"id":"REF02","category":"Refactoring","question":"How could the Sourcegraph integration be isolated behind a service boundary?"},
+  {"id":"RAG01","category":"RAG-based Question","question":"What repository evidence should be retrieved before explaining an environment compatibility risk?"},
+  {"id":"RAG02","category":"RAG-based Question","question":"How should ReproLens respond when retrieval returns no relevant evidence?"},
+  {"id":"RAG03","category":"RAG-based Question","question":"What is the difference between repository evidence and historical failure evidence in ReproLens?"},
+  {"id":"EXP03","category":"Explanation","question":"Why does ReproLens record evidence provenance and confidence?"},
+  {"id":"RET03","category":"Code Retrieval","question":"Which service is responsible for Sourcegraph repository search?"},
+  {"id":"DEP03","category":"Dependency Understanding","question":"Why is a declared runtime requirement stronger evidence than a raw version mismatch?"},
+  {"id":"BUG03","category":"Bug Analysis","question":"Give an example of a CI failure that should not be classified as environment-induced."},
+  {"id":"GEN03","category":"Code Generation","question":"Generate a test for the controlled PASS-to-FAIL environment perturbation rule."},
+  {"id":"RAG04","category":"RAG-based Question","question":"How does repository-level retrieval strengthen an LLM explanation?"}
+]

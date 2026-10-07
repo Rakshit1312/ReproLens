@@ -1,0 +1,33 @@
+name: ReproLens Pre-CI Analysis
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+jobs:
+  reprolens:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ReproLens
+        run: python -m pip install -e .
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Extract CI environment fingerprint
+        run: python -m reprolens.cli fingerprint . --ci -o ci-fingerprint.json
+
+      - name: Upload ReproLens evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: reprolens-ci-fingerprint
+          path: ci-fingerprint.json

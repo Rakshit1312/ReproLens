@@ -1,0 +1,21 @@
+[project]
+name = "reprolens"
+version = "0.2.0"
+description = "AI-assisted prediction of environment-induced CI failures"
+requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115", "uvicorn>=0.30"]
+rag = ["langchain>=1.0", "langchain-community>=0.3"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+reprolens = "reprolens.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["reprolens*"]
