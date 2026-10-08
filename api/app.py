@@ -12,6 +12,7 @@ except ImportError as exc:
 
 from reprolens.orchestrator import analyze_repository
 from reprolens.predictor import run_experiment
+from reprolens.model_comparison import compare_models
 
 
 app = FastAPI(
@@ -53,6 +54,7 @@ def models():
     """
 
     experiment = run_experiment()
+    cross_validation = compare_models()
 
     return {
         "dataset_size": experiment["dataset_size"],
@@ -65,4 +67,5 @@ def models():
             "contains only 20 controlled examples."
         ),
         "models": experiment["results"],
+        "cross_validation": cross_validation,
     }
