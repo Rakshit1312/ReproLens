@@ -5,12 +5,19 @@ from pathlib import Path
 try:
     from fastapi import FastAPI
     from pydantic import BaseModel
-except ImportError as exc:  # pragma: no cover
-    raise RuntimeError("Install the api extra: pip install -e '.[api]'") from exc
+except ImportError as exc:
+    raise RuntimeError(
+        "Install the api extra: pip install -e '.[api]'"
+    ) from exc
 
 from reprolens.orchestrator import analyze_repository
+from reprolens.predictor import run_experiment
 
-app = FastAPI(title="ReproLens API", version="0.2.0")
+
+app = FastAPI(
+    title="ReproLens API",
+    version="0.3.0",
+)
 
 
 class AnalyzeRequest(BaseModel):
@@ -22,7 +29,10 @@ class AnalyzeRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "reprolens-api"}
+    return {
+        "status": "ok",
+        "service": "reprolens-api",
+    }
 
 
 @app.post("/analyze")
@@ -33,3 +43,26 @@ def analyze(request: AnalyzeRequest):
         top_k=request.top_k,
         use_sourcegraph=request.sourcegraph,
     )
+
+
+@app.get("/models")
+def models():
+    """
+    Compare all ReproLens prediction approaches
+    on the controlled benchmark.
+    """
+
+    experiment = run_experiment()
+
+    return {
+        "dataset_size": experiment["dataset_size"],
+        "training_examples": experiment["training_examples"],
+        "test_examples": experiment["test_examples"],
+        "random_state": experiment["random_state"],
+        "evaluation_type": "controlled_holdout",
+        "warning": (
+            "Results are preliminary because the benchmark "
+            "contains only 20 controlled examples."
+        ),
+        "models": experiment["results"],
+    }

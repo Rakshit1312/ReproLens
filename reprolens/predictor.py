@@ -2,6 +2,9 @@ from reprolens.feature_engineering import build_features
 from reprolens.baseline import predict_baseline
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -9,6 +12,7 @@ from sklearn.metrics import (
     f1_score,
     confusion_matrix,
 )
+
 from sklearn.model_selection import train_test_split
 
 
@@ -27,40 +31,47 @@ FEATURE_COLUMNS = [
 
 
 def load_dataset():
-    """Load structured ReproLens features."""
-
     return build_features(
         "data/experiments/environment_failures.csv"
     )
 
 
 def calculate_metrics(actual, predictions):
-    """Calculate standard binary classification metrics."""
+    matrix = confusion_matrix(
+        actual,
+        predictions,
+    )
 
     return {
-        "accuracy": accuracy_score(
-            actual,
-            predictions,
+        "accuracy": round(
+            accuracy_score(actual, predictions),
+            3,
         ),
-        "precision": precision_score(
-            actual,
-            predictions,
-            zero_division=0,
+        "precision": round(
+            precision_score(
+                actual,
+                predictions,
+                zero_division=0,
+            ),
+            3,
         ),
-        "recall": recall_score(
-            actual,
-            predictions,
-            zero_division=0,
+        "recall": round(
+            recall_score(
+                actual,
+                predictions,
+                zero_division=0,
+            ),
+            3,
         ),
-        "f1": f1_score(
-            actual,
-            predictions,
-            zero_division=0,
+        "f1": round(
+            f1_score(
+                actual,
+                predictions,
+                zero_division=0,
+            ),
+            3,
         ),
-        "confusion_matrix": confusion_matrix(
-            actual,
-            predictions,
-        ),
+        "confusion_matrix": matrix.tolist(),
     }
 
 
@@ -77,7 +88,6 @@ def run_experiment():
         for row in rows
     ]
 
-    # Keep the exact same unseen test set for both approaches.
     (
         X_train,
         X_test,
@@ -94,154 +104,146 @@ def run_experiment():
         stratify=y,
     )
 
-    # -----------------------------
-    # ML MODEL
-    # -----------------------------
+    models = {
+        "Logistic Regression": LogisticRegression(
+            random_state=42
+        ),
+        "Decision Tree": DecisionTreeClassifier(
+            random_state=42,
+            max_depth=4,
+        ),
+        "Random Forest": RandomForestClassifier(
+            n_estimators=100,
+            random_state=42,
+            max_depth=5,
+        ),
+    }
 
-    model = LogisticRegression(
-        random_state=42
-    )
+    results = {}
 
-    model.fit(
-        X_train,
-        y_train,
-    )
+    for name, model in models.items():
 
-    ml_predictions = model.predict(
-        X_test
-    )
+        model.fit(
+            X_train,
+            y_train,
+        )
 
-    ml_probabilities = model.predict_proba(
-        X_test
-    )[:, 1]
+        predictions = model.predict(
+            X_test
+        )
 
-    # -----------------------------
-    # RULE BASELINE
-    # -----------------------------
+        metrics = calculate_metrics(
+            y_test,
+            predictions,
+        )
+
+        probabilities = None
+
+        if hasattr(
+            model,
+            "predict_proba",
+        ):
+            probabilities = (
+                model.predict_proba(X_test)[:, 1]
+                .round(3)
+                .tolist()
+            )
+
+        results[name] = {
+            "metrics": metrics,
+            "predictions": predictions.tolist(),
+            "probabilities": probabilities,
+        }
 
     baseline_predictions = [
         predict_baseline(row)
         for row in rows_test
     ]
 
-    # -----------------------------
-    # METRICS
-    # -----------------------------
+    results["Rule-Based Baseline"] = {
+        "metrics": calculate_metrics(
+            y_test,
+            baseline_predictions,
+        ),
+        "predictions": baseline_predictions,
+        "probabilities": None,
+    }
 
-    ml_metrics = calculate_metrics(
-        y_test,
-        ml_predictions,
-    )
-
-    baseline_metrics = calculate_metrics(
-        y_test,
-        baseline_predictions,
-    )
-
-    return (
-        model,
-        ml_metrics,
-        baseline_metrics,
-        y_test,
-        ml_predictions,
-        baseline_predictions,
-        ml_probabilities,
-    )
+    return {
+        "dataset_size": len(rows),
+        "training_examples": len(X_train),
+        "test_examples": len(X_test),
+        "random_state": 42,
+        "results": results,
+        "actual": y_test,
+        "test_cases": [
+            {
+                "id": row["id"],
+                "project": row["project"],
+                "actual": actual,
+            }
+            for row, actual in zip(
+                rows_test,
+                y_test,
+            )
+        ],
+    }
 
 
 if __name__ == "__main__":
 
-    (
-        model,
-        ml_metrics,
-        baseline_metrics,
-        actual,
-        ml_predictions,
-        baseline_predictions,
-        probabilities,
-    ) = run_experiment()
+    experiment = run_experiment()
 
     print(
-        "ReproLens Baseline vs ML Evaluation"
+        "ReproLens Model Comparison"
     )
-    print("=" * 50)
-
-    print("\nDataset")
-    print("-" * 50)
-    print("Training examples: 15")
-    print("Unseen test examples: 5")
-
-    print("\nRule-Based Baseline")
-    print("-" * 50)
+    print("=" * 60)
 
     print(
-        f"Accuracy:  "
-        f"{baseline_metrics['accuracy']:.3f}"
-    )
-    print(
-        f"Precision: "
-        f"{baseline_metrics['precision']:.3f}"
-    )
-    print(
-        f"Recall:    "
-        f"{baseline_metrics['recall']:.3f}"
-    )
-    print(
-        f"F1 Score:  "
-        f"{baseline_metrics['f1']:.3f}"
+        f"Dataset: "
+        f"{experiment['dataset_size']} examples"
     )
 
-    print("\nBaseline Confusion Matrix:")
     print(
-        baseline_metrics["confusion_matrix"]
+        f"Train: "
+        f"{experiment['training_examples']}"
     )
 
-    print("\nLogistic Regression")
-    print("-" * 50)
-
     print(
-        f"Accuracy:  "
-        f"{ml_metrics['accuracy']:.3f}"
-    )
-    print(
-        f"Precision: "
-        f"{ml_metrics['precision']:.3f}"
-    )
-    print(
-        f"Recall:    "
-        f"{ml_metrics['recall']:.3f}"
-    )
-    print(
-        f"F1 Score:  "
-        f"{ml_metrics['f1']:.3f}"
+        f"Test: "
+        f"{experiment['test_examples']}"
     )
 
-    print("\nML Confusion Matrix:")
-    print(
-        ml_metrics["confusion_matrix"]
-    )
+    print()
 
-    print("\nSame Unseen Test Cases")
-    print("-" * 50)
-
-    for index, (
-        actual_value,
-        baseline_prediction,
-        ml_prediction,
-        probability,
-    ) in enumerate(
-        zip(
-            actual,
-            baseline_predictions,
-            ml_predictions,
-            probabilities,
-        ),
-        start=1,
+    for name, result in (
+        experiment["results"].items()
     ):
+
+        metrics = result["metrics"]
+
+        print(name)
+        print("-" * 60)
+
         print(
-            f"Example {index}: "
-            f"actual={actual_value}, "
-            f"baseline={baseline_prediction}, "
-            f"ML={ml_prediction}, "
-            f"risk={probability:.3f}"
+            f"Accuracy : {metrics['accuracy']:.3f}"
         )
+
+        print(
+            f"Precision: {metrics['precision']:.3f}"
+        )
+
+        print(
+            f"Recall   : {metrics['recall']:.3f}"
+        )
+
+        print(
+            f"F1       : {metrics['f1']:.3f}"
+        )
+
+        print(
+            f"Confusion Matrix: "
+            f"{metrics['confusion_matrix']}"
+        )
+
+        print()
