@@ -1195,20 +1195,61 @@ f1: Number(
             description="The holdout is the primary benchmark; cross-validation checks stability across different splits."
           />
 
-          <div className="chart-box validation-chart">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={validationChartData} barGap={8}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
-                <XAxis dataKey="name" tick={{ fill: "#858592", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#858592", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: "#111117", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10 }}
-                  formatter={(value) => value == null ? ["—"] : [String(value) + "%"]}
-                />
-                <Bar dataKey="holdout" name="Holdout Accuracy" fill="#7067ff" radius={[5,5,0,0]} />
-                <Bar dataKey="cv" name="5-Fold CV Accuracy" fill="#26c6b8" radius={[5,5,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="metric-chart validation-metric-chart">
+            <div className="metric-chart-axis">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
+
+            <div className="metric-chart-area">
+              <div className="chart-grid-line line-100" />
+              <div className="chart-grid-line line-75" />
+              <div className="chart-grid-line line-50" />
+              <div className="chart-grid-line line-25" />
+              <div className="chart-grid-line line-0" />
+
+              <div className="chart-columns">
+                {validationChartData.map((row) => (
+                  <div className="chart-column" key={row.name}>
+                    <div className="chart-bars">
+                      {row.holdout !== null && (
+                        <div
+                          className="chart-bar accuracy-bar"
+                          style={{ height: `${Math.max(row.holdout, 2)}%` }}
+                        >
+                          <span>{row.holdout}%</span>
+                        </div>
+                      )}
+
+                      <div
+                        className="chart-bar f1-bar"
+                        style={{ height: `${Math.max(row.cv, 2)}%` }}
+                      >
+                        <span>{row.cv}%</span>
+                      </div>
+                    </div>
+
+                    <div className="chart-label">
+                      {row.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="chart-legend">
+            <span>
+              <i className="legend-dot accuracy-dot" />
+              Holdout Accuracy
+            </span>
+            <span>
+              <i className="legend-dot f1-dot" />
+              5-Fold CV Accuracy
+            </span>
           </div>
 
           <div className="model-table">
