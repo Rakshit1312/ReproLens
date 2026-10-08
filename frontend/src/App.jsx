@@ -551,21 +551,19 @@ f1: Number(
     );
   }, [models]);
 
-  const cvRows = (models?.cross_validation?.results || []).map((row) => ({
-    name: row.model,
-    accuracy: Number(row.accuracy ?? 0),
-    precision: Number(row.precision ?? 0),
-    recall: Number(row.recall ?? 0),
-    f1: Number(row.f1 ?? 0),
-  }));
+  const cvRows = models?.cross_validation?.results || [];
 
-  const validationChartData = [
-    { name: "Logistic", holdout: 80, cv: 90 },
-    { name: "Decision Tree", holdout: 100, cv: 95 },
-    { name: "Random Forest", holdout: 80, cv: 75 },
-    { name: "SVM", holdout: null, cv: 95 },
-    { name: "Gradient Boosting", holdout: null, cv: 90 },
-  ];
+  const validationChartData = cvRows.map((row) => {
+    const holdout = modelRows.find((item) => item.name === row.model);
+
+    return {
+      name: row.model
+        .replace("Logistic Regression", "Logistic")
+        .replace("Random Forest", "Random Forest"),
+      holdout: holdout ? Math.round(holdout.accuracy * 100) : null,
+      cv: Math.round(Number(row.accuracy ?? 0) * 100),
+    };
+  });
 
   const chartData = modelRows.map(
     (model) => ({
