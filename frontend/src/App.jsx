@@ -756,75 +756,44 @@ f1: Number(
             />
 
             {chartData.length ? (
-              <div className="chart-box">
-                <ResponsiveContainer
-                  width="100%"
-                  height={250}
-                >
-                  <BarChart
-                    data={chartData}
-                    barGap={10}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="rgba(255,255,255,.06)"
-                    />
+              <div className="metric-chart overview-model-chart">
+                <div className="metric-chart-axis">
+                  <span>100%</span>
+                  <span>75%</span>
+                  <span>50%</span>
+                  <span>25%</span>
+                  <span>0%</span>
+                </div>
 
-                    <XAxis
-                      dataKey="name"
-                      tick={{
-                        fill: "#858592",
-                        fontSize: 11,
-                      }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
+                <div className="metric-chart-area">
+                  <div className="chart-grid-line line-100" />
+                  <div className="chart-grid-line line-75" />
+                  <div className="chart-grid-line line-50" />
+                  <div className="chart-grid-line line-25" />
+                  <div className="chart-grid-line line-0" />
 
-                    <YAxis
-                      domain={[0, 100]}
-                      tick={{
-                        fill: "#858592",
-                        fontSize: 11,
-                      }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-
-                    <Tooltip
-                      contentStyle={{
-                        background: "#111117",
-                        border:
-                          "1px solid rgba(255,255,255,.1)",
-                        borderRadius: 10,
-                      }}
-                      formatter={(value) => [
-                        `${value}%`,
-                      ]}
-                    />
-
-                    <Bar
-                      dataKey="Accuracy"
-                      radius={[
-                        5,
-                        5,
-                        0,
-                        0,
-                      ]}
-                      fill="#7067ff"
-                    />
-
-                    <Bar
-                      dataKey="F1"
-                      radius={[
-                        5,
-                        5,
-                        0,
-                        0,
-                      ]}
-                      fill="#26c6b8"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                  <div className="chart-columns">
+                    {chartData.map((model) => (
+                      <div className="chart-column" key={model.name}>
+                        <div className="chart-bars">
+                          <div
+                            className="chart-bar accuracy-bar"
+                            style={{ height: `${Math.max(model.Accuracy, 2)}%` }}
+                          >
+                            <span>{model.Accuracy}%</span>
+                          </div>
+                          <div
+                            className="chart-bar f1-bar"
+                            style={{ height: `${Math.max(model.F1, 2)}%` }}
+                          >
+                            <span>{model.F1}%</span>
+                          </div>
+                        </div>
+                        <div className="chart-label">{model.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             ) : (
               <EmptyState
@@ -833,6 +802,17 @@ f1: Number(
                 text="Start the API to load benchmark results."
               />
             )}
+
+            <div className="chart-legend">
+              <span>
+                <i className="legend-dot accuracy-dot" />
+                Accuracy
+              </span>
+              <span>
+                <i className="legend-dot f1-dot" />
+                F1 Score
+              </span>
+            </div>
           </section>
 
           <section className="panel">
