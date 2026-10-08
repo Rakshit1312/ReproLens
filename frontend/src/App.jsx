@@ -551,6 +551,22 @@ f1: Number(
     );
   }, [models]);
 
+  const cvRows = (models?.cross_validation?.results || []).map((row) => ({
+    name: row.model,
+    accuracy: Number(row.accuracy ?? 0),
+    precision: Number(row.precision ?? 0),
+    recall: Number(row.recall ?? 0),
+    f1: Number(row.f1 ?? 0),
+  }));
+
+  const validationChartData = [
+    { name: "Logistic", holdout: 80, cv: 90 },
+    { name: "Decision Tree", holdout: 100, cv: 95 },
+    { name: "Random Forest", holdout: 80, cv: 75 },
+    { name: "SVM", holdout: null, cv: 95 },
+    { name: "Gradient Boosting", holdout: null, cv: 90 },
+  ];
+
   const chartData = modelRows.map(
     (model) => ({
       name: model.name
@@ -1072,7 +1088,7 @@ f1: Number(
         <SectionHeader
           eyebrow="MODEL EVALUATION"
           title="Compare prediction approaches"
-          description="Four approaches evaluated on the same controlled holdout."
+          description="Primary holdout results with a supplementary 5-fold cross-validation robustness check."
         />
 
         <div className="model-summary">
@@ -1162,6 +1178,63 @@ f1: Number(
                 </span>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <SectionHeader
+            eyebrow="ROBUSTNESS CHECK"
+            title="Holdout vs 5-Fold CV"
+            description="The holdout is the primary benchmark; cross-validation checks stability across different splits."
+          />
+
+          <div className="chart-box">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={validationChartData} barGap={8}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
+                <XAxis dataKey="name" tick={{ fill: "#858592", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#858592", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ background: "#111117", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10 }}
+                  formatter={(value) => value == null ? ["—"] : [String(value) + "%"]}
+                />
+                <Bar dataKey="holdout" name="Holdout Accuracy" fill="#7067ff" radius={[5,5,0,0]} />
+                <Bar dataKey="cv" name="5-Fold CV Accuracy" fill="#26c6b8" radius={[5,5,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="model-table">
+            <div className="model-table-head">
+              <span>Model</span>
+              <span>Holdout Acc.</span>
+              <span>CV Acc.</span>
+              <span>Holdout F1</span>
+              <span>CV F1</span>
+            </div>
+            {[
+              { name: "Logistic Regression", holdout: 0.80, holdoutF1: 0.667, cv: 0.90, cvF1: 0.867 },
+              { name: "Decision Tree", holdout: 1.00, holdoutF1: 1.00, cv: 0.95, cvF1: 0.933 },
+              { name: "Random Forest", holdout: 0.80, holdoutF1: 0.667, cv: 0.75, cvF1: 0.533 },
+              { name: "SVM", holdout: null, holdoutF1: null, cv: 0.95, cvF1: 0.933 },
+              { name: "Gradient Boosting", holdout: null, holdoutF1: null, cv: 0.90, cvF1: 0.867 },
+            ].map((row) => (
+              <div className="model-table-row" key={row.name}>
+                <strong>{row.name === "Decision Tree" && <span className="best-dot" />}{row.name}</strong>
+                <span>{formatPercent(row.holdout)}</span>
+                <span>{formatPercent(row.cv)}</span>
+                <span>{formatPercent(row.holdoutF1)}</span>
+                <span className="f1-value">{formatPercent(row.cvF1)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="research-note secondary">
+            <Database size={19} />
+            <div>
+              <strong>Preliminary controlled benchmark</strong>
+              <p>Both evaluations use the same 20-row controlled dataset. These results do not establish real-world generalization.</p>
+            </div>
           </div>
         </section>
 
