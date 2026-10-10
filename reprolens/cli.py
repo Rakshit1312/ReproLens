@@ -83,7 +83,8 @@ def print_analysis(result: dict) -> None:
 
     print(
         f"Environment differences        : "
-        f"{difference_count}"
+        f"{difference_count} across "
+        f"{features.get('environment_comparison_count', 0)} known comparisons"
     )
 
     print("\n[2] COMPATIBILITY")

@@ -54,6 +54,23 @@ Never collect secret values. For environment variables, record presence/name onl
 - Preserve unknown values.
 - Do not use post-CI failure information when constructing pre-CI prediction inputs.
 
+## Unknown comparison states and prototype prediction
+
+When either side of a comparison lacks comparable evidence, the corresponding
+feature is serialized as `null` and its category status is `unknown`. It must
+not be interpreted as a match, absence of a mismatch, or sufficient resources.
+The current repository extractor does not establish dependency conflicts,
+missing required variables, or resource sufficiency, so those outcomes remain
+unknown unless an explicit signal is provided.
+
+The prototype predictor retains its trained ten-column binary input schema.
+For scoring only, unknown inputs are projected to the legacy V1 defaults and
+listed in `unknown_input_features`; that projection is not a compatibility
+finding. The warning returned with the prediction documents this limitation.
+Representing unknown values directly in the learned model requires revising
+the benchmark labels/features and retraining; the current model is not trained
+for tri-state inputs.
+
 ## Target features
 
 Platform: OS match, architecture match, libc match.

@@ -40,9 +40,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CompatibilityStatus } from "./CompatibilityStatus.js";
 import {
   buildRuntimeComparisonRows,
-  runtimeComparisonStatus,
+  compatibilityStatuses,
 } from "./runtimeComparison.js";
 
 const API = "/api";
@@ -150,6 +151,15 @@ function getFingerprintValue(fingerprint, section, keys, fallback) {
   return firstValue(fingerprint?.[section], keys, fallback);
 }
 
+function configurationSummary(fingerprint) {
+  const names = Object.keys(fingerprint?.configuration || {}).filter(
+    (name) => name.startsWith("env:") || name.startsWith("ci_env:")
+  );
+  return names.length
+    ? `${names.length} variable names declared`
+    : "Not detected";
+}
+
 function MetricCard({
   label,
   value,
@@ -230,6 +240,9 @@ function EnvironmentTable({ analysis }) {
   const dev = analysis?.development_fingerprint || {};
   const ci = analysis?.ci_fingerprint || {};
   const features = analysis?.compatibility?.features || {};
+  const statuses =
+    analysis?.compatibility?.statuses ||
+    compatibilityStatuses(features);
 
   const rows = [
     ...buildRuntimeComparisonRows(dev, ci, features),
@@ -239,20 +252,28 @@ function EnvironmentTable({ analysis }) {
       dev: getFingerprintValue(
         dev,
         "platform",
-        ["os", "operating_system", "platform"],
-        "Local environment"
+        ["os", "operating_system"],
+        "Not detected"
       ),
       ci: getFingerprintValue(
         ci,
         "platform",
-        ["os", "ci_runner", "runner", "platform"],
-        "ubuntu-22.04"
+        ["os", "operating_system"],
+        "Not detected"
       ),
-      mismatch: Boolean(features.os_mismatch),
-      compatible:
-        features.os_compatible !== undefined
-          ? Boolean(features.os_compatible)
-          : !Boolean(features.os_mismatch),
+      status: statuses.os,
+    },
+
+    {
+      label: "CI runner configuration",
+      dev: "No CI runner declaration",
+      ci: getFingerprintValue(
+        ci,
+        "platform",
+        ["ci_runner", "runner"],
+        "Not declared"
+      ),
+      status: "unknown",
     },
 
     {
@@ -261,40 +282,22 @@ function EnvironmentTable({ analysis }) {
         dev,
         "dependencies",
         ["dependency_count", "dependencies", "lockfile_present"],
-        "Repository dependencies"
+        "Not detected"
       ),
       ci: getFingerprintValue(
         ci,
         "dependencies",
         ["dependency_count", "dependencies"],
-        "CI installation"
+        "Not detected"
       ),
-      mismatch: Boolean(features.dependency_mismatch),
-      compatible:
-        features.dependency_compatible !== undefined
-          ? Boolean(features.dependency_compatible)
-          : !Boolean(features.dependency_mismatch),
+      status: statuses.dependencies,
     },
 
     {
       label: "Configuration",
-      dev: getFingerprintValue(
-        dev,
-        "configuration",
-        ["environment", "config", "configuration"],
-        "Repository configuration"
-      ),
-      ci: getFingerprintValue(
-        ci,
-        "configuration",
-        ["environment", "config", "configuration"],
-        "GitHub Actions"
-      ),
-      mismatch: Boolean(features.config_mismatch),
-      compatible:
-        features.config_compatible !== undefined
-          ? Boolean(features.config_compatible)
-          : !Boolean(features.config_mismatch),
+      dev: configurationSummary(dev),
+      ci: configurationSummary(ci),
+      status: statuses.configuration,
     },
 
     {
@@ -303,19 +306,15 @@ function EnvironmentTable({ analysis }) {
         dev,
         "resources",
         ["cpu", "memory", "resources"],
-        "Local machine"
+        "Not detected"
       ),
       ci: getFingerprintValue(
         ci,
         "resources",
         ["cpu", "memory", "resources"],
-        "Hosted runner"
+        "Not detected"
       ),
-      mismatch: Boolean(features.resource_mismatch),
-      compatible:
-        features.resource_sufficient !== undefined
-          ? Boolean(features.resource_sufficient)
-          : true,
+      status: statuses.resources,
     },
   ];
 
@@ -337,22 +336,7 @@ function EnvironmentTable({ analysis }) {
           <code>{row.ci}</code>
 
           <span>
-            {row.status === "unknown" ? (
-              <span className="table-status neutral">
-                <CircleDot size={13} />
-                not compared
-              </span>
-            ) : row.status === "mismatch" || row.mismatch ? (
-              <span className="table-status warning">
-                <AlertTriangle size={13} />
-                mismatch
-              </span>
-            ) : (
-              <span className="table-status success">
-                <CheckCircle2 size={13} />
-                compatible
-              </span>
-            )}
+            <CompatibilityStatus status={row.status} />
           </span>
         </div>
       ))}
@@ -494,14 +478,18 @@ export default function App() {
   const features =
     analysis?.compatibility?.features || {};
 
-  const runtimeStatus = runtimeComparisonStatus(features);
-  const mismatchCount = [
-    runtimeStatus === "mismatch",
-    features.dependency_mismatch,
-    features.os_mismatch,
-    features.config_mismatch,
-    features.resource_mismatch,
-  ].filter(Boolean).length;
+  const statuses =
+    analysis?.compatibility?.statuses ||
+    compatibilityStatuses(features);
+  const runtimeStatus = statuses.runtime;
+  const statusValues = Object.values(statuses);
+  const mismatchCount = statusValues.filter(
+    (status) => status === "mismatch"
+  ).length;
+  const comparedCount = statusValues.filter(
+    (status) => status !== "unknown"
+  ).length;
+  const unknownCount = statusValues.length - comparedCount;
 
   const evidence =
     analysis?.retrieved_context || [];
@@ -663,7 +651,7 @@ f1: Number(
           <MetricCard
             label="Mismatch signals"
             value={mismatchCount}
-            detail="Environment dimensions inspected"
+            detail={`${comparedCount} compared · ${unknownCount} unknown`}
             icon={GitBranch}
           />
 
@@ -849,22 +837,10 @@ f1: Number(
   function renderAnalysis() {
     const mismatchNames = [
       { name: "Runtime", status: runtimeStatus },
-      {
-        name: "Dependencies",
-        status: features.dependency_mismatch ? "mismatch" : "compatible",
-      },
-      {
-        name: "Operating system",
-        status: features.os_mismatch ? "mismatch" : "compatible",
-      },
-      {
-        name: "Configuration",
-        status: features.config_mismatch ? "mismatch" : "compatible",
-      },
-      {
-        name: "Resources",
-        status: features.resource_mismatch ? "mismatch" : "compatible",
-      },
+      { name: "Dependencies", status: statuses.dependencies },
+      { name: "Operating system", status: statuses.os },
+      { name: "Configuration", status: statuses.configuration },
+      { name: "Resources", status: statuses.resources },
     ];
 
     return (
@@ -970,26 +946,10 @@ f1: Number(
                   >
                     <span>{name}</span>
 
-                    {status === "unknown" ? (
-                      <span className="signal-neutral">
-                        <CircleDot size={13} />
-                        not compared
-                      </span>
-                    ) : status === "mismatch" ? (
-                      <span className="signal-bad">
-                        <AlertTriangle
-                          size={13}
-                        />
-                        mismatch
-                      </span>
-                    ) : (
-                      <span className="signal-good">
-                        <CheckCircle2
-                          size={13}
-                        />
-                        aligned
-                      </span>
-                    )}
+                    <CompatibilityStatus
+                      status={status}
+                      variant="signal"
+                    />
                   </div>
                 )
               )}

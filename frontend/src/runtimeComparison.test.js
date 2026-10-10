@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildRuntimeComparisonRows,
+  compatibilityStatuses,
   runtimeComparisonStatus,
 } from "./runtimeComparison.js";
 
@@ -55,8 +56,102 @@ test("missing comparable runtime features are not called compatible", () => {
 
   assert.equal(rows[0].status, "unknown");
   assert.equal(rows[1].status, "unknown");
-  assert.equal(rows[2].status, "unknown");
+  assert.equal(rows[2].status, "not_applicable");
   assert.equal(runtimeComparisonStatus({}), "unknown");
+  assert.deepEqual(compatibilityStatuses({}), {
+    runtime: "unknown",
+    dependencies: "unknown",
+    os: "unknown",
+    configuration: "unknown",
+    resources: "unknown",
+  });
+});
+
+test("observed runtime equality and difference determine status from evidence", () => {
+  assert.equal(
+    runtimeComparisonStatus({ python_version_match: 1 }),
+    "compatible"
+  );
+  assert.equal(
+    runtimeComparisonStatus({ python_version_match: 0 }),
+    "mismatch"
+  );
+});
+
+test("runtime aggregation requires every applicable check", () => {
+  assert.equal(
+    runtimeComparisonStatus({
+      python_version_match: 1,
+      node_version_match: null,
+    }),
+    "unknown"
+  );
+  assert.equal(
+    runtimeComparisonStatus({
+      python_version_match: 1,
+      node_version_match: 0,
+    }),
+    "mismatch"
+  );
+  assert.equal(
+    runtimeComparisonStatus({
+      python_version_match: 1,
+    }),
+    "compatible"
+  );
+  assert.equal(runtimeComparisonStatus({}), "unknown");
+});
+
+test("a missing applicable runtime requirement keeps aggregate unknown", () => {
+  assert.equal(
+    runtimeComparisonStatus({
+      python_version_match: 1,
+      python_requirement_violation: null,
+    }),
+    "unknown"
+  );
+});
+
+test("all applicable runtime checks must pass for compatibility", () => {
+  assert.equal(
+    runtimeComparisonStatus({
+      python_version_match: 1,
+      python_declaration_version_match: 1,
+      python_requirement_violation: 0,
+    }),
+    "compatible"
+  );
+});
+
+test("OS aggregation requires OS, architecture, and libc comparisons", () => {
+  assert.equal(
+    compatibilityStatuses({ os_match: 1 }).os,
+    "unknown"
+  );
+  assert.equal(
+    compatibilityStatuses({
+      os_match: 1,
+      architecture_match: null,
+      libc_match: null,
+    }).os,
+    "unknown"
+  );
+  assert.equal(
+    compatibilityStatuses({
+      os_match: 1,
+      architecture_match: 0,
+      libc_match: null,
+    }).os,
+    "mismatch"
+  );
+  assert.equal(
+    compatibilityStatuses({
+      os_match: 1,
+      architecture_match: 1,
+      libc_match: 1,
+    }).os,
+    "compatible"
+  );
 });
 
 test("schema 1.0 repository and CI runtimes remain declarations", () => {
