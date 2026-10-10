@@ -6,6 +6,7 @@ from typing import Any
 from .diff import analyze_compatibility
 from .extractor import fingerprint_ci, fingerprint_repository
 from .repo_prediction import predict_repository
+from .services.llm_service import LLMService, grounded_prompt
 from .services.rag_service import build_repository_retriever
 from .services.sourcegraph_service import SourcegraphService
 
@@ -15,6 +16,7 @@ def analyze_repository(
     question: str | None = None,
     top_k: int = 5,
     use_sourcegraph: bool = True,
+    use_llm: bool = False,
 ) -> dict[str, Any]:
     repo = Path(repo).resolve()
     dev = fingerprint_repository(repo).to_dict()
@@ -31,6 +33,17 @@ def analyze_repository(
         "configuration compatibility"
     )
     contexts = retriever.retrieve(query, k=top_k)
+
+    explanation = None
+    llm_metadata = None
+    if use_llm:
+        llm = LLMService()
+        prompt = grounded_prompt(query, compatibility, prediction, contexts)
+        explanation = llm.generate(prompt)
+        llm_metadata = {
+            "provider": llm.provider,
+            "model": llm.model,
+        }
 
     sourcegraph_results = []
     if use_sourcegraph:
@@ -60,6 +73,10 @@ def analyze_repository(
         "prediction": prediction,
         "retrieved_context": contexts,
         "sourcegraph_results": sourcegraph_results,
+        "llm_enabled": use_llm,
+        "llm_status": "generated" if use_llm else "disabled",
+        "explanation": explanation,
+        "llm_metadata": llm_metadata,
         "llm_input": {
             "question": query,
             "risk": compatibility,

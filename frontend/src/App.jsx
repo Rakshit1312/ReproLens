@@ -434,6 +434,8 @@ export default function App() {
 
   const [analysis, setAnalysis] = useState(null);
 
+  const [useLlm, setUseLlm] = useState(false);
+
   const [models, setModels] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -442,7 +444,7 @@ export default function App() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  async function loadData() {
+  async function loadData(llm = useLlm) {
     try {
       setError("");
       setRefreshing(true);
@@ -458,6 +460,7 @@ export default function App() {
               repository: ".",
               top_k: 5,
               sourcegraph: false,
+              llm,
             }),
           }),
 
@@ -903,6 +906,25 @@ f1: Number(
           }
         />
 
+        <label className="llm-toggle">
+          <input
+            type="checkbox"
+            checked={useLlm}
+            disabled={refreshing}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setUseLlm(enabled);
+              loadData(enabled);
+            }}
+          />
+          <span>
+            <strong>Generate an LLM explanation</strong>
+            <small>
+              Uses the configured provider and repository evidence.
+            </small>
+          </span>
+        </label>
+
         <div className="analysis-hero-grid">
           <div className="panel prediction-panel">
             <div className="prediction-heading">
@@ -986,6 +1008,22 @@ f1: Number(
             </div>
           </div>
         </div>
+
+        {analysis?.explanation && (
+          <section className="panel llm-explanation">
+            <SectionHeader
+              eyebrow="GROUNDED EXPLANATION"
+              title="LLM analysis"
+              description={[
+                analysis.llm_metadata?.provider,
+                analysis.llm_metadata?.model,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
+            <p>{analysis.explanation}</p>
+          </section>
+        )}
 
         <section className="panel">
           <SectionHeader
