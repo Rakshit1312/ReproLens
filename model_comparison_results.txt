@@ -1,0 +1,56 @@
+﻿{
+  "dataset": "data\\experiments\\environment_failures.csv",
+  "rows": 20,
+  "features": [
+    "runtime_mismatch",
+    "dependency_mismatch",
+    "os_mismatch",
+    "config_mismatch",
+    "resource_mismatch",
+    "runtime_compatible",
+    "dependency_compatible",
+    "os_compatible",
+    "config_compatible",
+    "resource_sufficient"
+  ],
+  "validation": "5-fold stratified cross-validation",
+  "results": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.9,
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1": 0.867
+    },
+    {
+      "model": "Decision Tree",
+      "accuracy": 0.95,
+      "precision": 1.0,
+      "recall": 0.9,
+      "f1": 0.933
+    },
+    {
+      "model": "Random Forest",
+      "accuracy": 0.75,
+      "precision": 0.6,
+      "recall": 0.5,
+      "f1": 0.533
+    },
+    {
+      "model": "SVM",
+      "accuracy": 0.95,
+      "precision": 1.0,
+      "recall": 0.9,
+      "f1": 0.933
+    },
+    {
+      "model": "Gradient Boosting",
+      "accuracy": 0.9,
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1": 0.867
+    }
+  ],
+  "best_by_f1": "Decision Tree",
+  "warning": "Preliminary controlled-benchmark comparison; 20 rows are insufficient for real-world generalization."
+}

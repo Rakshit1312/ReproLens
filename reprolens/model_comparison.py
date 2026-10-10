@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import make_scorer, precision_score
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -45,6 +46,12 @@ def compare_models() -> dict[str, Any]:
 
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     results = []
+    scoring = {
+        "accuracy": "accuracy",
+        "precision": make_scorer(precision_score, zero_division=0),
+        "recall": "recall",
+        "f1": "f1",
+    }
 
     for name, model in models.items():
         scores = cross_validate(
@@ -52,7 +59,7 @@ def compare_models() -> dict[str, Any]:
             X,
             y,
             cv=cv,
-            scoring=("accuracy", "precision", "recall", "f1"),
+            scoring=scoring,
         )
         results.append(
             {
@@ -77,3 +84,6 @@ def compare_models() -> dict[str, Any]:
             "20 rows are insufficient for real-world generalization."
         ),
     }
+if __name__ == "__main__":
+    import json
+    print(json.dumps(compare_models(), indent=2))
