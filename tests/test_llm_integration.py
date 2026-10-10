@@ -16,6 +16,7 @@ from reprolens.services.llm_service import (
 
 
 def _stub_analysis(monkeypatch, llm_service=None):
+    captured = {}
     monkeypatch.setattr(
         orchestrator,
         "fingerprint_repository",
@@ -46,6 +47,7 @@ def _stub_analysis(monkeypatch, llm_service=None):
 
     class Retriever:
         def retrieve(self, query, k):
+            captured["query"] = query
             return [{"source": "pyproject.toml", "text": "requires-python >=3.11"}]
 
     monkeypatch.setattr(
@@ -55,6 +57,7 @@ def _stub_analysis(monkeypatch, llm_service=None):
     )
     if llm_service is not None:
         monkeypatch.setattr(orchestrator, "LLMService", llm_service)
+    return captured
 
 
 def test_analysis_without_llm_preserves_analysis_and_does_not_call_provider(
@@ -63,7 +66,7 @@ def test_analysis_without_llm_preserves_analysis_and_does_not_call_provider(
     def unexpected_provider():
         raise AssertionError("LLM should remain opt-in")
 
-    _stub_analysis(monkeypatch, unexpected_provider)
+    captured = _stub_analysis(monkeypatch, unexpected_provider)
 
     result = orchestrator.analyze_repository(
         tmp_path,
@@ -77,6 +80,10 @@ def test_analysis_without_llm_preserves_analysis_and_does_not_call_provider(
     assert result["llm_status"] == "disabled"
     assert result["explanation"] is None
     assert result["llm_metadata"] is None
+    assert captured["query"] == (
+        "CI workflow runtime version requirements dependencies "
+        "pyproject.toml package.json Dockerfile"
+    )
 
 
 def test_analysis_uses_grounded_prompt_and_returns_provider_metadata(
@@ -178,6 +185,42 @@ def test_api_analysis_preserves_observed_and_declared_runtime_sections(
     assert response["ci_fingerprint"]["runtimes"] == {}
     assert response["ci_fingerprint"]["runtime_declarations"] == {
         "python": {"value": "3.11"}
+    }
+
+
+def test_api_serializes_unknown_compatibility_states(monkeypatch):
+    from fastapi.encoders import jsonable_encoder
+
+    from api import app as api
+    from reprolens.diff import analyze_compatibility
+
+    analysis = analyze_compatibility(
+        {"source": {"type": "repository"}},
+        {"source": {"type": "ci"}},
+    )
+    monkeypatch.setattr(
+        api,
+        "analyze_repository",
+        lambda repository, **kwargs: {
+            "compatibility": analysis,
+            "development_fingerprint": {"source": {"type": "repository"}},
+            "ci_fingerprint": {"source": {"type": "ci"}},
+        },
+    )
+
+    response = api.analyze(
+        api.AnalyzeRequest(repository=".", sourcegraph=False)
+    )
+    payload = json.loads(json.dumps(jsonable_encoder(response)))
+
+    assert payload["compatibility"]["features"]["os_match"] is None
+    assert "python_version_match" not in payload["compatibility"]["features"]
+    assert payload["compatibility"]["statuses"] == {
+        "runtime": "unknown",
+        "dependencies": "unknown",
+        "os": "unknown",
+        "configuration": "unknown",
+        "resources": "unknown",
     }
 
 

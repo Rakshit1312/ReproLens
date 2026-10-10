@@ -28,18 +28,17 @@ function formatRuntimeValues(section) {
 }
 
 function declaredRuntimes(fingerprint) {
-  if (Object.keys(fingerprint?.runtime_declarations || {}).length) {
-    return fingerprint.runtime_declarations;
-  }
-
   if (
     fingerprint?.schema_version === "1.0" &&
     ["repository", "ci"].includes(fingerprint?.source?.type)
   ) {
-    return fingerprint.runtimes || {};
+    return {
+      ...(fingerprint.runtimes || {}),
+      ...(fingerprint.runtime_declarations || {}),
+    };
   }
 
-  return {};
+  return fingerprint?.runtime_declarations || {};
 }
 
 function observedRuntimes(fingerprint) {
@@ -48,33 +47,104 @@ function observedRuntimes(fingerprint) {
     : {};
 }
 
-function comparisonStatus(features, suffix, mismatchValue = 0) {
+export function comparisonStatus(features, suffix, mismatchValue = 0) {
   const keys = RUNTIMES.map(
     ([runtime]) => `${runtime}_${suffix}`
   );
-  const results = keys
-    .filter((key) => features?.[key] === 0 || features?.[key] === 1)
-    .map((key) => features[key]);
+  return featureKeysStatus(features, keys, mismatchValue);
+}
 
-  if (!results.length) {
+function featureKeysStatus(features, keys, mismatchValue) {
+  const applicableKeys = keys.filter((key) =>
+    Object.prototype.hasOwnProperty.call(features || {}, key)
+  );
+  if (!applicableKeys.length) {
     return "unknown";
   }
 
-  return results.includes(mismatchValue) ? "mismatch" : "compatible";
+  return aggregateStatus(
+    applicableKeys.map((key) =>
+      featureStatus(features[key], mismatchValue)
+    )
+  );
+}
+
+export function featureStatus(value, mismatchValue) {
+  if (value !== 0 && value !== 1) {
+    return "unknown";
+  }
+  return value === mismatchValue ? "mismatch" : "compatible";
+}
+
+export function compatibilityStatuses(features) {
+  const runtimeChecks = [
+    ...RUNTIMES.map(([runtime]) => [`${runtime}_version_match`, 0]),
+    ...RUNTIMES.map(([runtime]) => [
+      `${runtime}_declaration_version_match`,
+      0,
+    ]),
+    ...RUNTIMES.slice(0, 3).map(([runtime]) => [
+      `${runtime}_requirement_violation`,
+      1,
+    ]),
+  ];
+  const runtimeStatus = featureChecksStatus(features, runtimeChecks);
+  const osStatus = aggregateStatus([
+    featureChecksStatus(
+      features,
+      [
+        ["os_match", 0],
+        ["architecture_match", 0],
+        ["libc_match", 0],
+      ],
+      true
+    ),
+  ]);
+
+  return {
+    runtime: runtimeStatus,
+    dependencies: featureStatus(
+      features?.dependency_environment_conflict,
+      1
+    ),
+    os: osStatus,
+    configuration: featureStatus(
+      features?.required_env_missing,
+      1
+    ),
+    resources: featureStatus(
+      features?.resource_constraint_detected,
+      1
+    ),
+  };
 }
 
 export function runtimeComparisonStatus(features) {
-  const statuses = [
-    comparisonStatus(features, "version_match"),
-    comparisonStatus(features, "declaration_version_match"),
-    comparisonStatus(features, "requirement_violation", 1),
-  ];
+  return compatibilityStatuses(features).runtime;
+}
 
+function featureChecksStatus(features, checks, requireAll = false) {
+  const applicable = checks
+    .filter(
+      ([key]) =>
+        requireAll ||
+        Object.prototype.hasOwnProperty.call(features || {}, key)
+    )
+    .map(([key, mismatchValue]) =>
+      featureStatus(features[key], mismatchValue)
+    );
+
+  return aggregateStatus(applicable);
+}
+
+function aggregateStatus(statuses) {
   if (statuses.includes("mismatch")) {
     return "mismatch";
   }
-
-  return statuses.includes("compatible") ? "compatible" : "unknown";
+  if (!statuses.length || statuses.includes("unknown")) {
+    return "unknown";
+  }
+  return "compatible";
 }
 
 function runtimeUsedForRequirement(fingerprint) {
@@ -131,11 +201,11 @@ export function buildRuntimeComparisonRows(dev, ci, features) {
       label: "Runtime requirement check",
       dev: formatRequirements(dev?.requirements) || "No requirement",
       ci: runtimeUsedForRequirement(ci) || "No comparable CI runtime",
-      status: comparisonStatus(
-        features,
-        "requirement_violation",
-        1
-      ),
+      status: Object.keys(dev?.requirements || {}).some((runtime) =>
+        ["node", "python", "java"].includes(runtime)
+      )
+        ? comparisonStatus(features, "requirement_violation", 1)
+        : "not_applicable",
     },
   ];
 }

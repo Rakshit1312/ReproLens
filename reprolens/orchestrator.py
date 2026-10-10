@@ -29,8 +29,8 @@ def analyze_repository(
 
     retriever = build_repository_retriever(repo)
     query = question or (
-        "environment runtime dependency CI build "
-        "configuration compatibility"
+        "CI workflow runtime version requirements dependencies "
+        "pyproject.toml package.json Dockerfile"
     )
     contexts = retriever.retrieve(query, k=top_k)
 
