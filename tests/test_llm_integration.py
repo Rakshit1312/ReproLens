@@ -144,6 +144,43 @@ def test_api_request_defaults_to_non_llm_and_returns_llm_shape(monkeypatch):
     assert calls[1]["use_llm"] is True
 
 
+def test_api_analysis_preserves_observed_and_declared_runtime_sections(
+    monkeypatch,
+):
+    from api import app as api
+
+    expected = {
+        "development_fingerprint": {
+            "schema_version": "1.1",
+            "runtimes": {"python": {"value": "3.12"}},
+            "runtime_declarations": {"python": {"value": "3.11"}},
+        },
+        "ci_fingerprint": {
+            "schema_version": "1.1",
+            "runtimes": {},
+            "runtime_declarations": {"python": {"value": "3.11"}},
+        },
+    }
+    monkeypatch.setattr(
+        api,
+        "analyze_repository",
+        lambda repository, **kwargs: expected,
+    )
+
+    response = api.analyze(api.AnalyzeRequest(repository=".", llm=False))
+
+    assert response["development_fingerprint"]["runtimes"] == {
+        "python": {"value": "3.12"}
+    }
+    assert response["development_fingerprint"]["runtime_declarations"] == {
+        "python": {"value": "3.11"}
+    }
+    assert response["ci_fingerprint"]["runtimes"] == {}
+    assert response["ci_fingerprint"]["runtime_declarations"] == {
+        "python": {"value": "3.11"}
+    }
+
+
 def test_api_reports_llm_configuration_error_without_secret_details(monkeypatch):
     from api import app as api
 

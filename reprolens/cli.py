@@ -49,14 +49,14 @@ def print_analysis(result: dict) -> None:
     ci = result["ci_fingerprint"]
 
     dev_python = _value(
-        dev.get("requirements", {}),
+        dev.get("runtime_declarations", {}),
         "python",
-    )
+    ) or _value(dev.get("requirements", {}), "python")
 
     ci_python = _value(
-        ci.get("runtimes", {}),
+        ci.get("runtime_declarations", {}),
         "python",
-    )
+    ) or _value(ci.get("runtimes", {}), "python")
 
     ci_runner = _value(
         ci.get("platform", {}),
@@ -64,11 +64,11 @@ def print_analysis(result: dict) -> None:
     )
 
     print(
-        f"Development Python requirement : "
+        f"Development Python declaration: "
         f"{dev_python or 'unknown'}"
     )
     print(
-        f"CI Python runtime              : "
+        f"CI Python configuration        : "
         f"{ci_python or 'unknown'}"
     )
     print(

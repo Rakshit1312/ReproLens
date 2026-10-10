@@ -26,6 +26,16 @@ Construct a reproducible, structured representation of build-relevant developmen
 
 Every extracted value records its source and confidence. Repository declarations are not treated as proof of actual local state.
 
+Runtime values observed by local machine probes belong in `runtimes`
+(fingerprint schema 1.1).
+Repository version files, `package.json` `devEngines.runtime` declarations,
+and CI `actions/setup-*` version inputs belong in `runtime_declarations`.
+Compare declared versions with declared versions and observed versions with
+observed versions; do not infer an observed local version from repository
+configuration. If a value was not observed or declared, preserve it as unknown.
+When reading schema 1.0 repository or CI fingerprints, interpret their `runtimes`
+entries as declarations for comparison, not observed local machine values.
+
 ## Confidence
 
 - High: direct machine observation or explicit machine/configuration declaration.

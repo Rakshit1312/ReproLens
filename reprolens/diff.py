@@ -11,6 +11,27 @@ def _value(section, key):
     return item.get("value") if item else None
 
 
+def _observed_runtime(fingerprint: dict, runtime: str):
+    source_type = fingerprint.get("source", {}).get("type")
+    if source_type != "local":
+        return None
+    return _value(fingerprint.get("runtimes", {}), runtime)
+
+
+def _declared_runtime(fingerprint: dict, runtime: str):
+    value = _value(fingerprint.get("runtime_declarations", {}), runtime)
+    if value is not None:
+        return value
+
+    source_type = fingerprint.get("source", {}).get("type")
+    if (
+        fingerprint.get("schema_version") == "1.0"
+        and source_type in {"repository", "ci"}
+    ):
+        return _value(fingerprint.get("runtimes", {}), runtime)
+    return None
+
+
 def _major(value):
     if value is None:
         return None
@@ -27,12 +48,24 @@ def compare(dev: dict, ci: dict) -> dict[str, Any]:
             features[f"{key}_match"] = int(str(a).lower() == str(b).lower())
 
     for runtime in ("node", "python", "java", "ruby"):
-        a, b = _value(dev.get("runtimes", {}), runtime), _value(ci.get("runtimes", {}), runtime)
+        a, b = _observed_runtime(dev, runtime), _observed_runtime(ci, runtime)
         if a is not None and b is not None:
             features[f"{runtime}_version_match"] = int(str(a) == str(b))
             ma, mb = _major(a), _major(b)
             if ma is not None and mb is not None:
                 features[f"{runtime}_major_difference"] = abs(ma - mb)
+
+        declared_dev = _declared_runtime(dev, runtime)
+        declared_ci = _declared_runtime(ci, runtime)
+        if declared_dev is not None and declared_ci is not None:
+            features[f"{runtime}_declaration_version_match"] = int(
+                str(declared_dev) == str(declared_ci)
+            )
+            dev_major, ci_major = _major(declared_dev), _major(declared_ci)
+            if dev_major is not None and ci_major is not None:
+                features[f"{runtime}_declaration_major_difference"] = abs(
+                    dev_major - ci_major
+                )
 
     for tool in ("npm", "pip", "maven", "gradle"):
         a, b = _value(dev.get("package_managers", {}), tool) or _value(dev.get("build_tools", {}), tool), _value(ci.get("package_managers", {}), tool) or _value(ci.get("build_tools", {}), tool)
@@ -40,7 +73,13 @@ def compare(dev: dict, ci: dict) -> dict[str, Any]:
             features[f"{tool}_match"] = int(str(a) == str(b))
 
     dev_req = dev.get("requirements", {})
-    ci_runtime = ci.get("runtimes", {})
+    ci_runtime = {}
+    for runtime in ("node", "python", "java"):
+        value = _observed_runtime(ci, runtime)
+        if value is None:
+            value = _declared_runtime(ci, runtime)
+        if value is not None:
+            ci_runtime[runtime] = {"value": value}
     for runtime in ("node", "python", "java"):
         req = _value(dev_req, runtime)
         actual = _value(ci_runtime, runtime)

@@ -1535,7 +1535,8 @@ nav {
 }
 
 .signal-good,
-.signal-bad {
+.signal-bad,
+.signal-neutral {
   display: inline-flex;
   align-items: center;
 
@@ -1555,6 +1556,10 @@ nav {
 
 .signal-bad {
   color: #f0a36b;
+}
+
+.signal-neutral {
+  color: #a6a6b3;
 }
 
 /* =========================================================
@@ -1676,6 +1681,14 @@ nav {
   background: rgba(239,174,118,.08);
 
   border: 1px solid rgba(239,174,118,.15);
+}
+
+.table-status.neutral {
+  color: #a6a6b3;
+
+  background: rgba(255,255,255,.04);
+
+  border: 1px solid rgba(255,255,255,.08);
 }
 
 /* =========================================================
