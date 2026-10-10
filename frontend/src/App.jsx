@@ -40,6 +40,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  buildRuntimeComparisonRows,
+  runtimeComparisonStatus,
+} from "./runtimeComparison.js";
 
 const API = "/api";
 
@@ -228,31 +232,7 @@ function EnvironmentTable({ analysis }) {
   const features = analysis?.compatibility?.features || {};
 
   const rows = [
-    {
-      label: "Runtime",
-      dev: getFingerprintValue(
-        dev,
-        "runtimes",
-        ["python", "node", "java", "runtime"],
-        getFingerprintValue(
-          dev,
-          "requirements",
-          ["python", "node", "java"],
-          "Not declared"
-        )
-      ),
-      ci: getFingerprintValue(
-        ci,
-        "runtimes",
-        ["python", "node", "java", "runtime"],
-        "Not detected"
-      ),
-      mismatch: Boolean(features.runtime_mismatch),
-      compatible:
-        features.runtime_compatible !== undefined
-          ? Boolean(features.runtime_compatible)
-          : !Boolean(features.runtime_mismatch),
-    },
+    ...buildRuntimeComparisonRows(dev, ci, features),
 
     {
       label: "Operating system",
@@ -357,7 +337,12 @@ function EnvironmentTable({ analysis }) {
           <code>{row.ci}</code>
 
           <span>
-            {row.mismatch ? (
+            {row.status === "unknown" ? (
+              <span className="table-status neutral">
+                <CircleDot size={13} />
+                not compared
+              </span>
+            ) : row.status === "mismatch" || row.mismatch ? (
               <span className="table-status warning">
                 <AlertTriangle size={13} />
                 mismatch
@@ -434,6 +419,8 @@ export default function App() {
 
   const [analysis, setAnalysis] = useState(null);
 
+  const [useLlm, setUseLlm] = useState(false);
+
   const [models, setModels] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -442,7 +429,7 @@ export default function App() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  async function loadData() {
+  async function loadData(llm = useLlm) {
     try {
       setError("");
       setRefreshing(true);
@@ -458,6 +445,7 @@ export default function App() {
               repository: ".",
               top_k: 5,
               sourcegraph: false,
+              llm,
             }),
           }),
 
@@ -506,8 +494,9 @@ export default function App() {
   const features =
     analysis?.compatibility?.features || {};
 
+  const runtimeStatus = runtimeComparisonStatus(features);
   const mismatchCount = [
-    features.runtime_mismatch,
+    runtimeStatus === "mismatch",
     features.dependency_mismatch,
     features.os_mismatch,
     features.config_mismatch,
@@ -859,26 +848,23 @@ f1: Number(
 
   function renderAnalysis() {
     const mismatchNames = [
-      [
-        "Runtime",
-        features.runtime_mismatch,
-      ],
-      [
-        "Dependencies",
-        features.dependency_mismatch,
-      ],
-      [
-        "Operating system",
-        features.os_mismatch,
-      ],
-      [
-        "Configuration",
-        features.config_mismatch,
-      ],
-      [
-        "Resources",
-        features.resource_mismatch,
-      ],
+      { name: "Runtime", status: runtimeStatus },
+      {
+        name: "Dependencies",
+        status: features.dependency_mismatch ? "mismatch" : "compatible",
+      },
+      {
+        name: "Operating system",
+        status: features.os_mismatch ? "mismatch" : "compatible",
+      },
+      {
+        name: "Configuration",
+        status: features.config_mismatch ? "mismatch" : "compatible",
+      },
+      {
+        name: "Resources",
+        status: features.resource_mismatch ? "mismatch" : "compatible",
+      },
     ];
 
     return (
@@ -902,6 +888,25 @@ f1: Number(
             </button>
           }
         />
+
+        <label className="llm-toggle">
+          <input
+            type="checkbox"
+            checked={useLlm}
+            disabled={refreshing}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setUseLlm(enabled);
+              loadData(enabled);
+            }}
+          />
+          <span>
+            <strong>Generate an LLM explanation</strong>
+            <small>
+              Uses the configured provider and repository evidence.
+            </small>
+          </span>
+        </label>
 
         <div className="analysis-hero-grid">
           <div className="panel prediction-panel">
@@ -958,14 +963,19 @@ f1: Number(
 
             <div className="signal-list">
               {mismatchNames.map(
-                ([name, mismatch]) => (
+                ({ name, status }) => (
                   <div
                     className="signal-row"
                     key={name}
                   >
                     <span>{name}</span>
 
-                    {mismatch ? (
+                    {status === "unknown" ? (
+                      <span className="signal-neutral">
+                        <CircleDot size={13} />
+                        not compared
+                      </span>
+                    ) : status === "mismatch" ? (
                       <span className="signal-bad">
                         <AlertTriangle
                           size={13}
@@ -986,6 +996,22 @@ f1: Number(
             </div>
           </div>
         </div>
+
+        {analysis?.explanation && (
+          <section className="panel llm-explanation">
+            <SectionHeader
+              eyebrow="GROUNDED EXPLANATION"
+              title="LLM analysis"
+              description={[
+                analysis.llm_metadata?.provider,
+                analysis.llm_metadata?.model,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
+            <p>{analysis.explanation}</p>
+          </section>
+        )}
 
         <section className="panel">
           <SectionHeader

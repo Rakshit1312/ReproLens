@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -41,9 +42,9 @@ def analyze(features: dict[str, Any]) -> dict[str, Any]:
     runtime_violation = [k for k, v in features.items() if k.endswith("_requirement_violation") and v == 1]
     runtime_diff = [k for k, v in features.items() if k.endswith("_major_difference") and isinstance(v, (int, float)) and v > 0]
     if runtime_violation:
-        candidates.append(Candidate("E1", "CI runtime violates a declared project requirement.", runtime_violation, "high"))
+        candidates.append(Candidate("E1", "CI runtime configuration violates a declared project requirement.", runtime_violation, "high"))
     elif runtime_diff:
-        candidates.append(Candidate("E1", "Development and CI runtime major versions differ.", runtime_diff, "medium"))
+        candidates.append(Candidate("E1", "Development and CI runtime declarations or observed versions differ.", runtime_diff, "medium"))
 
     dep_conflict = features.get("dependency_environment_conflict")
     if dep_conflict == 1:

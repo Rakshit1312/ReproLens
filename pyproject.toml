@@ -3,7 +3,7 @@ name = "reprolens"
 version = "0.2.0"
 description = "AI-assisted prediction of environment-induced CI failures"
 requires-python = ">=3.11"
-dependencies = ["PyYAML>=6.0"]
+dependencies = ["PyYAML>=6.0", "scikit-learn>=1.4"]
 
 [project.optional-dependencies]
 api = ["fastapi>=0.115", "uvicorn>=0.30"]

@@ -8,6 +8,8 @@ on:
 jobs:
   reprolens:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -19,7 +21,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install ReproLens
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[api,dev]"
 
       - name: Run tests
         run: python -m pytest -q
@@ -27,8 +29,57 @@ jobs:
       - name: Extract CI environment fingerprint
         run: python -m reprolens.cli fingerprint . --ci -o ci-fingerprint.json
 
-      - name: Upload ReproLens evidence
+      - name: Run ReproLens analysis without hosted credentials
+        run: >-
+          python -m reprolens.cli analyze . --no-sourcegraph --json
+          --output reprolens-report.json
+
+      - name: Add hosted LLM explanation on trusted default-branch pushes
+        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        continue-on-error: true
+        env:
+          REPROLENS_LLM_API_KEY: ${{ secrets.REPROLENS_LLM_API_KEY }}
+          REPROLENS_LLM_PROVIDER: ${{ vars.REPROLENS_LLM_PROVIDER }}
+          REPROLENS_LLM_BASE_URL: ${{ vars.REPROLENS_LLM_BASE_URL }}
+          REPROLENS_LLM_MODEL: ${{ vars.REPROLENS_LLM_MODEL }}
+        run: |
+          provider="${REPROLENS_LLM_PROVIDER:-openai-compatible}"
+          model="${REPROLENS_LLM_MODEL}"
+
+          if [ -z "$REPROLENS_LLM_API_KEY" ] || [ -z "$model" ]; then
+            echo "Skipping optional LLM analysis: API key and model configuration are required."
+            exit 0
+          fi
+
+          case "$provider" in
+            openai-compatible|openai)
+              ;;
+            ollama)
+              echo "Skipping optional LLM analysis: Ollama is not provisioned in this workflow."
+              exit 0
+              ;;
+            *)
+              echo "Skipping optional LLM analysis: unsupported hosted provider configuration."
+              exit 0
+              ;;
+          esac
+
+          REPROLENS_LLM_PROVIDER="$provider" \
+            python -m reprolens.cli analyze . --no-sourcegraph --llm --json \
+              --output reprolens-report-llm.json
+
+      - name: Verify required ReproLens artifacts
+        run: |
+          test -f ci-fingerprint.json
+          test -f reprolens-report.json
+
+      - name: Upload ReproLens evidence and report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reprolens-ci-fingerprint
-          path: ci-fingerprint.json
+          name: reprolens-analysis
+          path: |
+            ci-fingerprint.json
+            reprolens-report.json
+            reprolens-report-llm.json
+          if-no-files-found: error

@@ -11,6 +11,43 @@
   &:hover {
     border-color: var(--accent-border);
   }
+
+  .llm-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    cursor: pointer;
+  }
+
+  .llm-toggle input {
+    margin-top: 4px;
+    accent-color: var(--purple);
+  }
+
+  .llm-toggle strong,
+  .llm-toggle small {
+    display: block;
+  }
+
+  .llm-toggle strong {
+    font-size: 13px;
+  }
+
+  .llm-toggle small {
+    margin-top: 4px;
+    color: var(--muted);
+  }
+
+  .llm-explanation p {
+    color: var(--text-soft);
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;

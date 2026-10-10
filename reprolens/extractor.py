@@ -52,7 +52,13 @@ def _extract_version_file(root: Path, names: list[str], runtime: str, fp: Finger
         return
     value = text.strip().splitlines()[0].strip()
     if value:
-        _put(fp.runtimes, runtime, value, str(p.relative_to(root)), "high")
+        _put(
+            fp.runtime_declarations,
+            runtime,
+            value,
+            str(p.relative_to(root)),
+            "high",
+        )
 
 
 def _extract_package_json(root: Path, fp: Fingerprint):
@@ -74,8 +80,16 @@ def _extract_package_json(root: Path, fp: Fingerprint):
     if isinstance(dev, dict):
         runtime = dev.get("runtime")
         if isinstance(runtime, dict):
-            if runtime.get("name"):
-                _put(fp.runtimes, runtime["name"], runtime.get("version") or "declared", source + ":devEngines.runtime", "high")
+            name = runtime.get("name")
+            version = runtime.get("version")
+            if isinstance(name, str) and isinstance(version, str) and version:
+                _put(
+                    fp.runtime_declarations,
+                    name.lower(),
+                    version,
+                    source + ":devEngines.runtime.version",
+                    "high",
+                )
         pm = dev.get("packageManager")
         if isinstance(pm, dict) and pm.get("name"):
             _put(fp.package_managers, pm["name"], pm.get("version") or "declared", source + ":devEngines.packageManager", "high")
@@ -201,11 +215,11 @@ def _extract_workflows(root: Path, fp: Fingerprint):
                 uses = str(step.get("uses", ""))
                 with_args = step.get("with", {}) or {}
                 if "actions/setup-node" in uses and isinstance(with_args, dict) and with_args.get("node-version"):
-                    _put(fp.runtimes, "node", str(with_args["node-version"]), f"{p.relative_to(root)}:setup-node", "high")
+                    _put(fp.runtime_declarations, "node", str(with_args["node-version"]), f"{p.relative_to(root)}:setup-node", "high")
                 if "actions/setup-python" in uses and isinstance(with_args, dict) and with_args.get("python-version"):
-                    _put(fp.runtimes, "python", str(with_args["python-version"]), f"{p.relative_to(root)}:setup-python", "high")
+                    _put(fp.runtime_declarations, "python", str(with_args["python-version"]), f"{p.relative_to(root)}:setup-python", "high")
                 if "actions/setup-java" in uses and isinstance(with_args, dict) and with_args.get("java-version"):
-                    _put(fp.runtimes, "java", str(with_args["java-version"]), f"{p.relative_to(root)}:setup-java", "high")
+                    _put(fp.runtime_declarations, "java", str(with_args["java-version"]), f"{p.relative_to(root)}:setup-java", "high")
                 step_env = step.get("env", {}) or {}
                 if isinstance(step_env, dict):
                     for name in step_env:

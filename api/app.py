@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 try:
-    from fastapi import FastAPI
+    from fastapi import FastAPI, HTTPException
     from pydantic import BaseModel
 except ImportError as exc:
     raise RuntimeError(
@@ -13,6 +13,11 @@ except ImportError as exc:
 from reprolens.orchestrator import analyze_repository
 from reprolens.predictor import run_experiment
 from reprolens.model_comparison import compare_models
+from reprolens.services.llm_service import (
+    LLMConfigurationError,
+    LLMProviderError,
+    LLMTimeoutError,
+)
 
 
 app = FastAPI(
@@ -26,6 +31,7 @@ class AnalyzeRequest(BaseModel):
     question: str | None = None
     top_k: int = 5
     sourcegraph: bool = True
+    llm: bool = False
 
 
 @app.get("/health")
@@ -38,12 +44,32 @@ def health():
 
 @app.post("/analyze")
 def analyze(request: AnalyzeRequest):
-    return analyze_repository(
-        Path(request.repository),
-        question=request.question,
-        top_k=request.top_k,
-        use_sourcegraph=request.sourcegraph,
-    )
+    try:
+        return analyze_repository(
+            Path(request.repository),
+            question=request.question,
+            top_k=request.top_k,
+            use_sourcegraph=request.sourcegraph,
+            use_llm=request.llm,
+        )
+    except LLMConfigurationError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "LLM configuration is incomplete. Check the configured provider, "
+                "model, and hosted API key."
+            ),
+        ) from None
+    except LLMTimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="LLM provider request timed out. Retry or check provider availability.",
+        ) from None
+    except LLMProviderError:
+        raise HTTPException(
+            status_code=503,
+            detail="LLM provider is unavailable or returned an invalid response.",
+        ) from None
 
 
 @app.get("/models")

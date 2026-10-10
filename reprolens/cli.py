@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from .diff import compare
@@ -11,6 +12,11 @@ from .extractor import (
     fingerprint_repository,
 )
 from .orchestrator import analyze_repository
+from .services.llm_service import (
+    LLMConfigurationError,
+    LLMProviderError,
+    LLMTimeoutError,
+)
 
 
 def _value(section: dict, key: str):
@@ -43,14 +49,14 @@ def print_analysis(result: dict) -> None:
     ci = result["ci_fingerprint"]
 
     dev_python = _value(
-        dev.get("requirements", {}),
+        dev.get("runtime_declarations", {}),
         "python",
-    )
+    ) or _value(dev.get("requirements", {}), "python")
 
     ci_python = _value(
-        ci.get("runtimes", {}),
+        ci.get("runtime_declarations", {}),
         "python",
-    )
+    ) or _value(ci.get("runtimes", {}), "python")
 
     ci_runner = _value(
         ci.get("platform", {}),
@@ -58,11 +64,11 @@ def print_analysis(result: dict) -> None:
     )
 
     print(
-        f"Development Python requirement : "
+        f"Development Python declaration: "
         f"{dev_python or 'unknown'}"
     )
     print(
-        f"CI Python runtime              : "
+        f"CI Python configuration        : "
         f"{ci_python or 'unknown'}"
     )
     print(
@@ -173,6 +179,15 @@ def print_analysis(result: dict) -> None:
             "was detected from available evidence."
         )
 
+    explanation = result.get("explanation")
+    if explanation:
+        metadata = result.get("llm_metadata") or {}
+        provider = metadata.get("provider", "configured provider")
+        model = metadata.get("model", "configured model")
+        print(f"\n[6] LLM EXPLANATION ({provider} / {model})")
+        print("-" * 60)
+        print(explanation)
+
     print("\n" + "=" * 60)
     print(
         "Note: prediction is currently a prototype "
@@ -257,6 +272,18 @@ def main():
         help="Print raw JSON output",
     )
 
+    a.add_argument(
+        "--llm",
+        action="store_true",
+        help="Include an explanation from the configured LLM provider",
+    )
+
+    a.add_argument(
+        "--output",
+        "-o",
+        help="Write the machine-readable analysis report to a file",
+    )
+
     c = sub.add_parser(
         "compare",
         help="Compare two fingerprint JSON files",
@@ -270,19 +297,46 @@ def main():
 
     if args.command == "analyze":
 
-        result = analyze_repository(
-            args.path,
-            question=args.question,
-            top_k=args.top_k,
-            use_sourcegraph=not args.no_sourcegraph,
-        )
-
-        if args.json:
-            text = json.dumps(
-                result,
-                indent=2,
+        try:
+            result = analyze_repository(
+                args.path,
+                question=args.question,
+                top_k=args.top_k,
+                use_sourcegraph=not args.no_sourcegraph,
+                use_llm=args.llm,
             )
-            print(text)
+        except LLMConfigurationError:
+            print(
+                "reprolens: LLM configuration error. Check "
+                "REPROLENS_LLM_PROVIDER, REPROLENS_LLM_MODEL, and "
+                "REPROLENS_LLM_API_KEY.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from None
+        except LLMTimeoutError:
+            print(
+                "reprolens: LLM request timed out. Check provider availability "
+                "and REPROLENS_LLM_TIMEOUT, then retry.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from None
+        except LLMProviderError:
+            print(
+                "reprolens: LLM provider failed or is unavailable. Check the "
+                "configured endpoint and model, then retry.",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from None
+
+        if args.json or args.output:
+            text = json.dumps(result, indent=2)
+            if args.output:
+                Path(args.output).write_text(
+                    text + "\n",
+                    encoding="utf-8",
+                )
+            else:
+                print(text)
         else:
             print_analysis(result)
 

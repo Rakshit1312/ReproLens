@@ -22,10 +22,11 @@ class Field:
 
 @dataclass
 class Fingerprint:
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
     source_type: str = "repository"
     platform: Dict[str, Field] = field(default_factory=dict)
     runtimes: Dict[str, Field] = field(default_factory=dict)
+    runtime_declarations: Dict[str, Field] = field(default_factory=dict)
     package_managers: Dict[str, Field] = field(default_factory=dict)
     build_tools: Dict[str, Field] = field(default_factory=dict)
     dependencies: Dict[str, Field] = field(default_factory=dict)
@@ -43,6 +44,7 @@ class Fingerprint:
             "source": {"type": self.source_type},
             "platform": convert(self.platform),
             "runtimes": convert(self.runtimes),
+            "runtime_declarations": convert(self.runtime_declarations),
             "package_managers": convert(self.package_managers),
             "build_tools": convert(self.build_tools),
             "dependencies": convert(self.dependencies),
